@@ -1,0 +1,51 @@
+Hi Claude, can you build me a unique, complicated, and actually fun 2D game called **Chrono Courier**? Here are the full specs to develop:
+
+**Title:** Chrono Courier  
+**Genre:** Puzzle platformer + time-loop simulation + physics  
+**Engine:** Vanilla JavaScript/HTML5 Canvas (or Python Pygame if you prefer)  
+**Style:** Pixel art (low-res tiles)
+
+---
+
+**Core Gameplay:**
+
+You play as **Lumen**, a courier with a magical watch that lets you travel back and forth in time, across three layers: **Past, Present, and Future.**  
+Each level is a compact side-scrolling 2D environment with:
+- Physics-based puzzles (e.g. rolling barrels, pushing boxes, bridges)
+- Timelines that change the environment (trees grow, buildings decay, water freezes/melts)
+- NPCs with pathing logic that you can influence in the past to affect the future
+
+---
+
+**Mechanics:**
+
+1. **Time Shift (T):** Player can shift between Past, Present, Future instantly (cooldown 5 sec).  
+2. **Item Memory:** Picked-up items only exist in the timeline where they were collected unless "locked" using a chronos crystal.  
+3. **Physics Chain Reactions:** Push a box in the past—it might rot and collapse in the future. Light fire in the present—it creates ashes in the future.  
+4. **NPC Echoes:** If you help an NPC in the past, a version of them might open a door for you in the future.  
+5. **Locked Time Gates:** Only accessible when the state of an object is correct in all three timelines (e.g. a tree grown, cut, and burned = open path).  
+6. **Inventory:** Carry 3 items. Some items decay over time. You can throw items through timeline portals.  
+7. **Puzzle Example:** Burn a rope in the Present so a weight drops in the Future—but you must time-shift mid-fall to land on it and jump higher.
+
+---
+
+**Visual Layout:**
+
+- Single-screen or scrollable side view  
+- Display all 3 timelines as tabs you toggle between  
+- 2D tile-based terrain  
+- Character animation: run, jump, use watch, throw item  
+- Timeline layer fade-in when transitioning
+
+---
+
+**Stretch Features (Optional):**
+
+- A time-paradox meter (bad loops cause instability)  
+- Recursive objects: open a door in the past, walk through it in the future  
+- Simple scripting: Allow NPCs to follow simple commands ("follow me", "wait here", "give item if X")  
+- Boss fight: An ancient sentient hourglass that fights by reversing your inputs
+
+---
+
+Make it modular so I can add more timeline layers or puzzles later. The goal is to showcase Claude’s reasoning, logic, and game architecture planning skills—not just code output. Thanks! Put the entire thing in an artist for your final result. Ensure your final result is mobile friendly.
