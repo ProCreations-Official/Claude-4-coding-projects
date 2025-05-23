@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrono Courier</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #1a1a2e;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            background: #16213e;
+            border: 3px solid #0f3460;
+            border-radius: 8px;
+            margin: 10px;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: linear-gradient(180deg, #87ceeb 0%, #98fb98 100%);
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #ffffff;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+        
+        #timeline {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .timeline-btn {
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: 2px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        
+        .timeline-btn.active {
+            background: rgba(255,255,255,0.9);
+            color: #1a1a2e;
+            border-color: #fff;
+        }
+        
+        .timeline-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        #inventory {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .inventory-slot {
+            width: 40px;
+            height: 40px;
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #444;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+        
+        .inventory-slot.filled {
+            border-color: #ffd700;
+            background: rgba(255,215,0,0.3);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+        
+        .control-btn {
+            width: 50px;
+            height: 50px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: 2px solid #444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s;
+        }
+        
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(255,255,255,0.3);
+        }
+        
+        #instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 300px;
+            z-index: 100;
+        }
+        
+        #instructions.hidden {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .timeline-btn {
+                padding: 6px 8px;
+                font-size: 10px;
+            }
+            
+            .control-btn {
+                width: 45px;
+                height: 45px;
+                font-size: 18px;
+            }
+            
+            #ui {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div id="ui">
+            <div>Timeline: <span id="currentTimeline">PRESENT</span></div>
+            <div>Cooldown: <span id="cooldown">0</span>s</div>
+            <div>Score: <span id="score">0</span></div>
+        </div>
+        
+        <div id="timeline">
+            <button class="timeline-btn" data-timeline="past">PAST</button>
+            <button class="timeline-btn active" data-timeline="present">PRESENT</button>
+            <button class="timeline-btn" data-timeline="future">FUTURE</button>
+        </div>
+        
+        <div id="inventory">
+            <div class="inventory-slot" data-slot="0"></div>
+            <div class="inventory-slot" data-slot="1"></div>
+            <div class="inventory-slot" data-slot="2"></div>
+        </div>
+        
+        <div id="controls">
+            <button class="control-btn" id="leftBtn">←</button>
+            <button class="control-btn" id="jumpBtn">↑</button>
+            <button class="control-btn" id="rightBtn">→</button>
+            <button class="control-btn" id="actionBtn">⚡</button>
+        </div>
+        
+        <div id="instructions">
+            <h3>🕰️ Chrono Courier</h3>
+            <p><strong>Desktop:</strong> WASD/Arrows to move, SPACE to jump, E to interact, T to time shift</p>
+            <p><strong>Mobile:</strong> Use the on-screen controls</p>
+            <p>Collect items, solve puzzles across timelines, and help NPCs!</p>
+            <button onclick="document.getElementById('instructions').classList.add('hidden')">Start Game</button>
+        </div>
+    </div>
+
+    <script>
+        class ChronoCourier {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+                
+                // Responsive canvas
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                
+                // Game state
+                this.currentTimeline = 'present';
+                this.timeShiftCooldown = 0;
+                this.score = 0;
+                this.gameTime = 0;
+                
+                // Timelines data
+                this.timelines = {
+                    past: { name: 'PAST', color: '#8B4513', bgGradient: ['#2F4F4F', '#556B2F'] },
+                    present: { name: 'PRESENT', color: '#228B22', bgGradient: ['#87CEEB', '#98FB98'] },
+                    future: { name: 'FUTURE', color: '#4169E1', bgGradient: ['#191970', '#483D8B'] }
+                };
+                
+                // Initialize game objects
+                this.initializePlayer();
+                this.initializeWorld();
+                this.initializeNPCs();
+                this.initializeItems();
+                this.initializePhysics();
+                
+                // Input handling
+                this.keys = {};
+                this.setupInput();
+                
+                // Start game loop
+                this.lastTime = 0;
+                this.gameLoop(0);
+            }
+            
+            resizeCanvas() {
+                const container = document.getElementById('gameContainer');
+                const maxWidth = Math.min(window.innerWidth - 20, 800);
+                const maxHeight = Math.min(window.innerHeight - 20, 600);
+                const ratio = Math.min(maxWidth / 800, maxHeight / 600);
+                
+                this.canvas.style.width = (800 * ratio) + 'px';
+                this.canvas.style.height = (600 * ratio) + 'px';
+            }
+            
+            initializePlayer() {
+                this.player = {
+                    x: 100,
+                    y: 400,
+                    width: 32,
+                    height: 32,
+                    vx: 0,
+                    vy: 0,
+                    speed: 5,
+                    jumpPower: 15,
+                    onGround: false,
+                    inventory: [null, null, null],
+                    facing: 'right'
+                };
+            }
+            
+            initializeWorld() {
+                // World objects that change across timelines
+                this.worldObjects = {
+                    past: [
+                        { type: 'tree', x: 300, y: 450, width: 40, height: 100, state: 'sapling' },
+                        { type: 'bridge', x: 500, y: 480, width: 100, height: 20, state: 'new' },
+                        { type: 'box', x: 200, y: 460, width: 30, height: 30, state: 'wooden' },
+                        { type: 'water', x: 550, y: 500, width: 100, height: 100, state: 'flowing' }
+                    ],
+                    present: [
+                        { type: 'tree', x: 300, y: 420, width: 60, height: 130, state: 'grown' },
+                        { type: 'bridge', x: 500, y: 480, width: 100, height: 20, state: 'worn' },
+                        { type: 'box', x: 200, y: 460, width: 30, height: 30, state: 'aged' },
+                        { type: 'water', x: 550, y: 500, width: 100, height: 100, state: 'calm' }
+                    ],
+                    future: [
+                        { type: 'tree', x: 300, y: 400, width: 80, height: 150, state: 'ancient' },
+                        { type: 'bridge', x: 500, y: 480, width: 100, height: 20, state: 'broken' },
+                        { type: 'box', x: 200, y: 470, width: 30, height: 20, state: 'rotted' },
+                        { type: 'water', x: 550, y: 520, width: 100, height: 80, state: 'dried' }
+                    ]
+                };
+                
+                // Ground platforms
+                this.platforms = [
+                    { x: 0, y: 550, width: 800, height: 50 },
+                    { x: 150, y: 500, width: 100, height: 20 },
+                    { x: 400, y: 450, width: 80, height: 20 },
+                    { x: 650, y: 400, width: 100, height: 20 }
+                ];
+            }
+            
+            initializeNPCs() {
+                this.npcs = {
+                    past: [
+                        { x: 150, y: 468, width: 24, height: 32, type: 'villager', state: 'young', helped: false, direction: 1, patrol: [100, 250] }
+                    ],
+                    present: [
+                        { x: 180, y: 468, width: 24, height: 32, type: 'villager', state: 'adult', helped: false, direction: 1, patrol: [150, 300] }
+                    ],
+                    future: [
+                        { x: 200, y: 468, width: 24, height: 32, type: 'villager', state: 'elder', helped: false, direction: 1, patrol: [180, 320] }
+                    ]
+                };
+            }
+            
+            initializeItems() {
+                this.items = {
+                    past: [
+                        { x: 250, y: 470, type: 'key', timeline: 'past', collected: false },
+                        { x: 420, y: 420, type: 'crystal', timeline: 'past', collected: false }
+                    ],
+                    present: [
+                        { x: 450, y: 420, type: 'torch', timeline: 'present', collected: false }
+                    ],
+                    future: [
+                        { x: 670, y: 370, type: 'gem', timeline: 'future', collected: false }
+                    ]
+                };
+            }
+            
+            initializePhysics() {
+                this.gravity = 0.8;
+                this.friction = 0.8;
+            }
+            
+            setupInput() {
+                // Keyboard input
+                window.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    if (e.key.toLowerCase() === 't') this.timeShift();
+                    if (e.key.toLowerCase() === 'e' || e.key === ' ') this.interact();
+                });
+                
+                window.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                });
+                
+                // Mobile controls
+                const setupButton = (id, action) => {
+                    const btn = document.getElementById(id);
+                    btn.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        action(true);
+                    });
+                    btn.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        action(false);
+                    });
+                    btn.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        action(true);
+                    });
+                    btn.addEventListener('mouseup', (e) => {
+                        e.preventDefault();
+                        action(false);
+                    });
+                };
+                
+                setupButton('leftBtn', (pressed) => this.keys['arrowleft'] = pressed);
+                setupButton('rightBtn', (pressed) => this.keys['arrowright'] = pressed);
+                setupButton('jumpBtn', (pressed) => {
+                    this.keys['arrowup'] = pressed;
+                    if (pressed) this.interact();
+                });
+                setupButton('actionBtn', (pressed) => {
+                    if (pressed) this.timeShift();
+                });
+                
+                // Timeline buttons
+                document.querySelectorAll('.timeline-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const timeline = btn.dataset.timeline;
+                        if (this.timeShiftCooldown <= 0) {
+                            this.switchTimeline(timeline);
+                        }
+                    });
+                });
+            }
+            
+            update(deltaTime) {
+                this.gameTime += deltaTime;
+                
+                // Update cooldown
+                if (this.timeShiftCooldown > 0) {
+                    this.timeShiftCooldown -= deltaTime;
+                }
+                
+                // Player movement
+                this.updatePlayer(deltaTime);
+                
+                // Update NPCs
+                this.updateNPCs(deltaTime);
+                
+                // Update physics
+                this.updatePhysics(deltaTime);
+                
+                // Update UI
+                this.updateUI();
+            }
+            
+            updatePlayer(deltaTime) {
+                const player = this.player;
+                
+                // Horizontal movement
+                if (this.keys['a'] || this.keys['arrowleft']) {
+                    player.vx = -player.speed;
+                    player.facing = 'left';
+                } else if (this.keys['d'] || this.keys['arrowright']) {
+                    player.vx = player.speed;
+                    player.facing = 'right';
+                } else {
+                    player.vx *= this.friction;
+                }
+                
+                // Jumping
+                if ((this.keys['w'] || this.keys['arrowup'] || this.keys[' ']) && player.onGround) {
+                    player.vy = -player.jumpPower;
+                    player.onGround = false;
+                }
+                
+                // Apply gravity
+                player.vy += this.gravity;
+                
+                // Update position
+                player.x += player.vx;
+                player.y += player.vy;
+                
+                // Collision detection
+                this.checkCollisions();
+                
+                // Bounds checking
+                player.x = Math.max(0, Math.min(this.width - player.width, player.x));
+            }
+            
+            updateNPCs(deltaTime) {
+                const npcs = this.npcs[this.currentTimeline];
+                npcs.forEach(npc => {
+                    // Simple patrol AI
+                    npc.x += npc.direction * 0.5;
+                    if (npc.x <= npc.patrol[0] || npc.x >= npc.patrol[1]) {
+                        npc.direction *= -1;
+                    }
+                });
+            }
+            
+            updatePhysics(deltaTime) {
+                // Update world objects based on timeline
+                const objects = this.worldObjects[this.currentTimeline];
+                objects.forEach(obj => {
+                    // Apply timeline-specific physics
+                    if (obj.type === 'water' && obj.state === 'flowing') {
+                        // Animated water in the past
+                        obj.animOffset = (obj.animOffset || 0) + deltaTime * 0.002;
+                    }
+                });
+            }
+            
+            checkCollisions() {
+                const player = this.player;
+                player.onGround = false;
+                
+                // Platform collisions
+                this.platforms.forEach(platform => {
+                    if (this.isColliding(player, platform)) {
+                        // Top collision (landing)
+                        if (player.vy > 0 && player.y < platform.y) {
+                            player.y = platform.y - player.height;
+                            player.vy = 0;
+                            player.onGround = true;
+                        }
+                    }
+                });
+                
+                // World object collisions
+                const objects = this.worldObjects[this.currentTimeline];
+                objects.forEach(obj => {
+                    if (this.isColliding(player, obj)) {
+                        if (obj.type === 'box' && obj.state !== 'rotted') {
+                            // Solid collision
+                            if (player.vy > 0 && player.y < obj.y) {
+                                player.y = obj.y - player.height;
+                                player.vy = 0;
+                                player.onGround = true;
+                            }
+                        }
+                    }
+                });
+                
+                // Ground collision
+                if (player.y + player.height > this.height - 50) {
+                    player.y = this.height - 50 - player.height;
+                    player.vy = 0;
+                    player.onGround = true;
+                }
+            }
+            
+            isColliding(rect1, rect2) {
+                return rect1.x < rect2.x + rect2.width &&
+                       rect1.x + rect1.width > rect2.x &&
+                       rect1.y < rect2.y + rect2.height &&
+                       rect1.y + rect1.height > rect2.y;
+            }
+            
+            interact() {
+                const player = this.player;
+                
+                // Check for items
+                const items = this.items[this.currentTimeline];
+                items.forEach(item => {
+                    if (!item.collected && this.isNear(player, item, 50)) {
+                        this.collectItem(item);
+                    }
+                });
+                
+                // Check for NPCs
+                const npcs = this.npcs[this.currentTimeline];
+                npcs.forEach(npc => {
+                    if (this.isNear(player, npc, 50)) {
+                        this.helpNPC(npc);
+                    }
+                });
+            }
+            
+            isNear(obj1, obj2, distance) {
+                const dx = (obj1.x + obj1.width/2) - (obj2.x + obj2.width/2);
+                const dy = (obj1.y + obj1.height/2) - (obj2.y + obj2.height/2);
+                return Math.sqrt(dx*dx + dy*dy) < distance;
+            }
+            
+            collectItem(item) {
+                const emptySlot = this.player.inventory.findIndex(slot => slot === null);
+                if (emptySlot !== -1) {
+                    this.player.inventory[emptySlot] = item.type;
+                    item.collected = true;
+                    this.score += 10;
+                }
+            }
+            
+            helpNPC(npc) {
+                if (!npc.helped) {
+                    npc.helped = true;
+                    this.score += 20;
+                    
+                    // Cross-timeline effects
+                    if (this.currentTimeline === 'past') {
+                        // Helping in past affects future
+                        const futureNPCs = this.npcs.future;
+                        futureNPCs.forEach(futureNPC => {
+                            if (futureNPC.type === npc.type) {
+                                futureNPC.grateful = true;
+                            }
+                        });
+                    }
+                }
+            }
+            
+            timeShift() {
+                if (this.timeShiftCooldown > 0) return;
+                
+                const timelines = ['past', 'present', 'future'];
+                const currentIndex = timelines.indexOf(this.currentTimeline);
+                const nextIndex = (currentIndex + 1) % timelines.length;
+                
+                this.switchTimeline(timelines[nextIndex]);
+            }
+            
+            switchTimeline(timeline) {
+                if (this.timeShiftCooldown > 0) return;
+                
+                this.currentTimeline = timeline;
+                this.timeShiftCooldown = 5; // 5 second cooldown
+                
+                // Update UI
+                document.querySelectorAll('.timeline-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.dataset.timeline === timeline) {
+                        btn.classList.add('active');
+                    }
+                });
+            }
+            
+            updateUI() {
+                document.getElementById('currentTimeline').textContent = this.timelines[this.currentTimeline].name;
+                document.getElementById('cooldown').textContent = Math.ceil(Math.max(0, this.timeShiftCooldown));
+                document.getElementById('score').textContent = this.score;
+                
+                // Update inventory display
+                this.player.inventory.forEach((item, index) => {
+                    const slot = document.querySelector(`[data-slot="${index}"]`);
+                    if (item) {
+                        slot.textContent = this.getItemEmoji(item);
+                        slot.classList.add('filled');
+                    } else {
+                        slot.textContent = '';
+                        slot.classList.remove('filled');
+                    }
+                });
+            }
+            
+            getItemEmoji(itemType) {
+                const emojis = {
+                    key: '🗝️',
+                    crystal: '💎',
+                    torch: '🔥',
+                    gem: '💠'
+                };
+                return emojis[itemType] || '📦';
+            }
+            
+            render() {
+                const ctx = this.ctx;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, this.width, this.height);
+                
+                // Draw background based on timeline
+                this.drawBackground();
+                
+                // Draw world objects
+                this.drawWorldObjects();
+                
+                // Draw platforms
+                this.drawPlatforms();
+                
+                // Draw items
+                this.drawItems();
+                
+                // Draw NPCs
+                this.drawNPCs();
+                
+                // Draw player
+                this.drawPlayer();
+                
+                // Draw effects
+                this.drawEffects();
+            }
+            
+            drawBackground() {
+                const timeline = this.timelines[this.currentTimeline];
+                const gradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+                gradient.addColorStop(0, timeline.bgGradient[0]);
+                gradient.addColorStop(1, timeline.bgGradient[1]);
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                // Add timeline-specific atmosphere
+                this.ctx.globalAlpha = 0.1;
+                this.ctx.fillStyle = timeline.color;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                this.ctx.globalAlpha = 1;
+            }
+            
+            drawWorldObjects() {
+                const objects = this.worldObjects[this.currentTimeline];
+                objects.forEach(obj => {
+                    this.ctx.save();
+                    
+                    switch(obj.type) {
+                        case 'tree':
+                            this.drawTree(obj);
+                            break;
+                        case 'bridge':
+                            this.drawBridge(obj);
+                            break;
+                        case 'box':
+                            this.drawBox(obj);
+                            break;
+                        case 'water':
+                            this.drawWater(obj);
+                            break;
+                    }
+                    
+                    this.ctx.restore();
+                });
+            }
+            
+            drawTree(tree) {
+                const ctx = this.ctx;
+                
+                // Trunk
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(tree.x + tree.width/3, tree.y + tree.height/2, tree.width/3, tree.height/2);
+                
+                // Leaves based on state
+                if (tree.state === 'sapling') {
+                    ctx.fillStyle = '#90EE90';
+                    ctx.beginPath();
+                    ctx.arc(tree.x + tree.width/2, tree.y + tree.height/3, tree.width/4, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (tree.state === 'grown') {
+                    ctx.fillStyle = '#228B22';
+                    ctx.beginPath();
+                    ctx.arc(tree.x + tree.width/2, tree.y + tree.height/3, tree.width/3, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (tree.state === 'ancient') {
+                    ctx.fillStyle = '#006400';
+                    ctx.beginPath();
+                    ctx.arc(tree.x + tree.width/2, tree.y + tree.height/4, tree.width/2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            
+            drawBridge(bridge) {
+                const ctx = this.ctx;
+                
+                if (bridge.state === 'broken') {
+                    // Draw broken bridge
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(bridge.x, bridge.y, bridge.width/3, bridge.height);
+                    ctx.fillRect(bridge.x + bridge.width*2/3, bridge.y, bridge.width/3, bridge.height);
+                } else {
+                    // Draw solid bridge
+                    ctx.fillStyle = bridge.state === 'new' ? '#D2691E' : '#A0522D';
+                    ctx.fillRect(bridge.x, bridge.y, bridge.width, bridge.height);
+                }
+            }
+            
+            drawBox(box) {
+                const ctx = this.ctx;
+                
+                if (box.state === 'rotted') {
+                    ctx.fillStyle = '#654321';
+                    ctx.fillRect(box.x, box.y, box.width, box.height/2);
+                } else {
+                    ctx.fillStyle = box.state === 'wooden' ? '#DEB887' : '#8B7355';
+                    ctx.fillRect(box.x, box.y, box.width, box.height);
+                    
+                    // Draw box lines
+                    ctx.strokeStyle = '#654321';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(box.x, box.y, box.width, box.height);
+                }
+            }
+            
+            drawWater(water) {
+                const ctx = this.ctx;
+                
+                if (water.state === 'dried') {
+                    // Draw dried riverbed
+                    ctx.fillStyle = '#D2B48C';
+                    ctx.fillRect(water.x, water.y, water.width, water.height);
+                } else {
+                    // Draw animated water
+                    const offset = water.animOffset || 0;
+                    ctx.fillStyle = water.state === 'flowing' ? '#4169E1' : '#1E90FF';
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    for (let x = water.x; x < water.x + water.width; x += 5) {
+                        const waveY = water.y + Math.sin((x + offset * 100) / 20) * 3;
+                        if (x === water.x) {
+                            ctx.moveTo(x, waveY);
+                        } else {
+                            ctx.lineTo(x, waveY);
+                        }
+                    }
+                    ctx.lineTo(water.x + water.width, water.y + water.height);
+                    ctx.lineTo(water.x, water.y + water.height);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+            
+            drawPlatforms() {
+                const ctx = this.ctx;
+                ctx.fillStyle = '#696969';
+                
+                this.platforms.forEach(platform => {
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    
+                    // Add platform texture
+                    ctx.strokeStyle = '#808080';
+                    ctx.lineWidth = 1;
+                    for (let i = 0; i < platform.width; i += 20) {
+                        ctx.beginPath();
+                        ctx.moveTo(platform.x + i, platform.y);
+                        ctx.lineTo(platform.x + i, platform.y + platform.height);
+                        ctx.stroke();
+                    }
+                });
+            }
+            
+            drawItems() {
+                const items = this.items[this.currentTimeline];
+                items.forEach(item => {
+                    if (!item.collected) {
+                        this.ctx.save();
+                        
+                        // Add floating animation
+                        const bobOffset = Math.sin(this.gameTime * 0.005) * 5;
+                        
+                        this.ctx.fillStyle = this.getItemColor(item.type);
+                        this.ctx.fillRect(item.x, item.y + bobOffset, 20, 20);
+                        
+                        // Add glow effect
+                        this.ctx.shadowColor = this.getItemColor(item.type);
+                        this.ctx.shadowBlur = 10;
+                        this.ctx.fillRect(item.x, item.y + bobOffset, 20, 20);
+                        
+                        this.ctx.restore();
+                    }
+                });
+            }
+            
+            getItemColor(itemType) {
+                const colors = {
+                    key: '#FFD700',
+                    crystal: '#FF1493',
+                    torch: '#FF4500',
+                    gem: '#00CED1'
+                };
+                return colors[itemType] || '#FFFFFF';
+            }
+            
+            drawNPCs() {
+                const npcs = this.npcs[this.currentTimeline];
+                npcs.forEach(npc => {
+                    this.ctx.save();
+                    
+                    // NPC body
+                    this.ctx.fillStyle = npc.helped ? '#32CD32' : '#4169E1';
+                    this.ctx.fillRect(npc.x, npc.y, npc.width, npc.height);
+                    
+                    // NPC face
+                    this.ctx.fillStyle = '#FFDBAC';
+                    this.ctx.fillRect(npc.x + 4, npc.y + 4, npc.width - 8, npc.height/2);
+                    
+                    // Eyes
+                    this.ctx.fillStyle = '#000000';
+                    this.ctx.fillRect(npc.x + 6, npc.y + 8, 2, 2);
+                    this.ctx.fillRect(npc.x + 14, npc.y + 8, 2, 2);
+                    
+                    // Age indicator
+                    if (npc.state === 'elder') {
+                        this.ctx.fillStyle = '#CCCCCC';
+                        this.ctx.fillRect(npc.x + 2, npc.y + 2, npc.width - 4, 4);
+                    }
+                    
+                    // Grateful indicator
+                    if (npc.grateful) {
+                        this.ctx.fillStyle = '#FFD700';
+                        this.ctx.beginPath();
+                        this.ctx.arc(npc.x + npc.width/2, npc.y - 10, 8, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                    
+                    this.ctx.restore();
+                });
+            }
+            
+            drawPlayer() {
+                const player = this.player;
+                const ctx = this.ctx;
+                
+                ctx.save();
+                
+                // Player body
+                ctx.fillStyle = '#FF6B6B';
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                
+                // Player face
+                ctx.fillStyle = '#FFDBAC';
+                ctx.fillRect(player.x + 6, player.y + 4, player.width - 12, player.height/2);
+                
+                // Eyes
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(player.x + 8, player.y + 8, 3, 3);
+                ctx.fillRect(player.x + 18, player.y + 8, 3, 3);
+                
+                // Direction indicator
+                ctx.fillStyle = '#4ECDC4';
+                if (player.facing === 'right') {
+                    ctx.fillRect(player.x + player.width - 4, player.y + player.height/2, 4, 8);
+                } else {
+                    ctx.fillRect(player.x, player.y + player.height/2, 4, 8);
+                }
+                
+                // Time watch
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(player.x + player.width/2, player.y + player.height - 8, 4, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+            
+            drawEffects() {
+                // Time shift effect
+                if (this.timeShiftCooldown > 4) {
+                    const alpha = (5 - this.timeShiftCooldown) * 0.5;
+                    this.ctx.save();
+                    this.ctx.globalAlpha = alpha;
+                    this.ctx.fillStyle = this.timelines[this.currentTimeline].color;
+                    this.ctx.fillRect(0, 0, this.width, this.height);
+                    this.ctx.restore();
+                }
+                
+                // Particle effects for transitions
+                if (this.timeShiftCooldown > 3.5) {
+                    this.drawTimeParticles();
+                }
+            }
+            
+            drawTimeParticles() {
+                const ctx = this.ctx;
+                const centerX = this.player.x + this.player.width/2;
+                const centerY = this.player.y + this.player.height/2;
+                
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    const radius = (5 - this.timeShiftCooldown) * 50;
+                    const x = centerX + Math.cos(angle) * radius;
+                    const y = centerY + Math.sin(angle) * radius;
+                    
+                    ctx.save();
+                    ctx.globalAlpha = 0.7;
+                    ctx.fillStyle = this.timelines[this.currentTimeline].color;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+            }
+            
+            gameLoop(currentTime) {
+                const deltaTime = currentTime - this.lastTime;
+                this.lastTime = currentTime;
+                
+                this.update(deltaTime);
+                this.render();
+                
+                requestAnimationFrame((time) => this.gameLoop(time));
+            }
+        }
+        
+        // Initialize game when page loads
+        window.addEventListener('load', () => {
+            new ChronoCourier();
+        });
+    </script>
+</body>
+</html>
