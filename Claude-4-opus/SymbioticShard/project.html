@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Symbiotic Shard: The Last Echo Garden</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            overflow: hidden;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+            touch-action: none;
+        }
+        
+        #gameCanvas {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border: 2px solid #0ff;
+            box-shadow: 0 0 30px #0ff;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 1px solid #0ff;
+            border-radius: 5px;
+            font-size: 14px;
+            max-width: 300px;
+        }
+        
+        .meter {
+            margin: 5px 0;
+            height: 20px;
+            background: #111;
+            border: 1px solid #0ff;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .meter-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        #harmony-fill {
+            background: linear-gradient(90deg, #0ff, #0f0);
+        }
+        
+        #dissonance-fill {
+            background: linear-gradient(90deg, #f00, #f0f);
+        }
+        
+        #tempo-display {
+            margin-top: 10px;
+            text-align: center;
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border: 1px solid #0ff;
+            border-radius: 5px;
+            font-size: 12px;
+        }
+        
+        #seedInventory {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border: 1px solid #0ff;
+            border-radius: 5px;
+            max-width: 200px;
+        }
+        
+        .seed-slot {
+            margin: 5px 0;
+            padding: 5px;
+            border: 1px solid #444;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .seed-slot:hover {
+            border-color: #0ff;
+            background: rgba(0, 255, 255, 0.1);
+        }
+        
+        .seed-slot.selected {
+            border-color: #0f0;
+            background: rgba(0, 255, 0, 0.2);
+        }
+        
+        #touchControls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: none;
+        }
+        
+        .touch-button {
+            width: 60px;
+            height: 60px;
+            margin: 5px;
+            border: 2px solid #0ff;
+            border-radius: 50%;
+            background: rgba(0, 255, 255, 0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        @media (max-width: 768px) {
+            #touchControls {
+                display: block;
+            }
+            #controls {
+                display: none;
+            }
+            #ui {
+                font-size: 12px;
+                padding: 10px;
+            }
+            #seedInventory {
+                font-size: 12px;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    
+    <div id="ui">
+        <div>Shard Health: <span id="health">100</span>%</div>
+        <div class="meter">
+            <div id="harmony-fill" class="meter-fill" style="width: 50%"></div>
+        </div>
+        <div>Harmony: <span id="harmony">50</span>%</div>
+        <div class="meter">
+            <div id="dissonance-fill" class="meter-fill" style="width: 20%"></div>
+        </div>
+        <div>Dissonance: <span id="dissonance">20</span>%</div>
+        <div id="tempo-display">Tempo: <span id="tempo">60</span> BPM</div>
+    </div>
+    
+    <div id="seedInventory">
+        <h3>Echo Seeds</h3>
+        <div id="seedList"></div>
+    </div>
+    
+    <div id="controls">
+        <div>WASD/Arrows - Move</div>
+        <div>Space - Plant Seed</div>
+        <div>E - Harmonic Weave</div>
+        <div>R - Focused Light</div>
+        <div>Q - Shatter Scream</div>
+        <div>1-5 - Select Seed</div>
+    </div>
+    
+    <div id="touchControls">
+        <div class="touch-button" id="plantBtn">🌱</div>
+        <div class="touch-button" id="weaveBtn">🔗</div>
+        <div class="touch-button" id="lightBtn">💡</div>
+        <div class="touch-button" id="screamBtn">💥</div>
+    </div>
+
+    <script>
+        // Game initialization
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Responsive canvas sizing
+        function resizeCanvas() {
+            const maxWidth = window.innerWidth - 40;
+            const maxHeight = window.innerHeight - 200;
+            const aspectRatio = 16 / 9;
+            
+            if (maxWidth / maxHeight > aspectRatio) {
+                canvas.height = maxHeight;
+                canvas.width = maxHeight * aspectRatio;
+            } else {
+                canvas.width = maxWidth;
+                canvas.height = maxWidth / aspectRatio;
+            }
+        }
+        
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Game state
+        const game = {
+            player: {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                vx: 0,
+                vy: 0,
+                health: 100,
+                energy: 100,
+                resonanceIntensity: 1,
+                selectedSeed: 0
+            },
+            garden: {
+                harmony: 50,
+                dissonance: 20,
+                tempo: 60,
+                ambientLight: 0.7,
+                plants: [],
+                resonanceChains: []
+            },
+            enemies: [],
+            particles: [],
+            soundWaves: [],
+            seeds: [
+                { type: 'detector', name: 'Detector Bud', count: 5, color: '#0ff' },
+                { type: 'siren', name: 'Siren Stalk', count: 3, color: '#f0f' },
+                { type: 'refractor', name: 'Refractor Bloom', count: 3, color: '#ff0' },
+                { type: 'glow', name: 'Glow-Moss', count: 8, color: '#0f0' },
+                { type: 'muffle', name: 'Muffle-Bulb', count: 4, color: '#00f' }
+            ],
+            time: 0,
+            keys: {},
+            mouse: { x: 0, y: 0 },
+            touch: { active: false, x: 0, y: 0 }
+        };
+        
+        // Plant types with mutations
+        const plantTypes = {
+            detector: {
+                name: 'Detector Bud',
+                baseColor: '#0ff',
+                radius: 15,
+                detectionRange: 100,
+                soundFrequency: 440,
+                growth: function(plant, dt) {
+                    plant.age += dt;
+                    if (plant.age > 2 && Math.random() < 0.001) {
+                        plant.mutations.enhanced = true;
+                        plant.detectionRange *= 1.5;
+                    }
+                },
+                behavior: function(plant) {
+                    // Detect nearby enemies
+                    const nearbyEnemies = game.enemies.filter(e => {
+                        const dist = Math.hypot(e.x - plant.x, e.y - plant.y);
+                        return dist < plant.detectionRange;
+                    });
+                    
+                    if (nearbyEnemies.length > 0 && plant.cooldown <= 0) {
+                        // Emit warning chime
+                        createSoundWave(plant.x, plant.y, plant.soundFrequency, '#0ff', 50);
+                        plant.cooldown = 1;
+                        
+                        // Alert nearby plants
+                        game.garden.plants.forEach(p => {
+                            if (p !== plant && Math.hypot(p.x - plant.x, p.y - plant.y) < 150) {
+                                p.alerted = true;
+                            }
+                        });
+                    }
+                }
+            },
+            siren: {
+                name: 'Siren Stalk',
+                baseColor: '#f0f',
+                radius: 20,
+                attackRange: 80,
+                damage: 15,
+                soundFrequency: 880,
+                growth: function(plant, dt) {
+                    plant.age += dt;
+                    plant.height = Math.min(40, plant.height + dt * 5);
+                    if (plant.mutations.aggressive && Math.random() < 0.002) {
+                        plant.attackRange += 5;
+                    }
+                },
+                behavior: function(plant) {
+                    if (plant.alerted && plant.cooldown <= 0) {
+                        // Emit defensive shriek
+                        const nearbyEnemies = game.enemies.filter(e => {
+                            const dist = Math.hypot(e.x - plant.x, e.y - plant.y);
+                            return dist < plant.attackRange;
+                        });
+                        
+                        if (nearbyEnemies.length > 0) {
+                            createSoundWave(plant.x, plant.y, plant.soundFrequency, '#f0f', 80, true);
+                            nearbyEnemies.forEach(e => {
+                                e.health -= plant.damage * (plant.mutations.aggressive ? 1.5 : 1);
+                                e.stunned = 0.5;
+                            });
+                            plant.cooldown = 2;
+                            plant.alerted = false;
+                        }
+                    }
+                }
+            },
+            refractor: {
+                name: 'Refractor Bloom',
+                baseColor: '#ff0',
+                radius: 25,
+                lightAmplification: 1.5,
+                soundBending: 0.3,
+                growth: function(plant, dt) {
+                    plant.age += dt;
+                    plant.petalCount = Math.min(8, Math.floor(plant.age));
+                    if (plant.mutations.prismatic) {
+                        plant.lightAmplification += dt * 0.1;
+                    }
+                },
+                behavior: function(plant) {
+                    // Amplify nearby light
+                    const nearbyPlants = game.garden.plants.filter(p => {
+                        return p.type === 'glow' && Math.hypot(p.x - plant.x, p.y - plant.y) < 100;
+                    });
+                    
+                    plant.currentAmplification = 1 + (nearbyPlants.length * 0.2);
+                    
+                    // Bend sound waves
+                    game.soundWaves.forEach(wave => {
+                        const dist = Math.hypot(wave.x - plant.x, wave.y - plant.y);
+                        if (dist < 50 && dist > 20) {
+                            const angle = Math.atan2(plant.y - wave.y, plant.x - wave.x);
+                            wave.vx += Math.cos(angle) * plant.soundBending;
+                            wave.vy += Math.sin(angle) * plant.soundBending;
+                        }
+                    });
+                }
+            },
+            glow: {
+                name: 'Glow-Moss',
+                baseColor: '#0f0',
+                radius: 10,
+                lightProduction: 0.3,
+                spreading: true,
+                growth: function(plant, dt) {
+                    plant.age += dt;
+                    plant.brightness = 0.5 + Math.sin(game.time * 2) * 0.1;
+                    
+                    // Spread to nearby areas
+                    if (plant.spreading && Math.random() < 0.0001 && plant.age > 5) {
+                        const angle = Math.random() * Math.PI * 2;
+                        const dist = 30 + Math.random() * 20;
+                        createPlant('glow', plant.x + Math.cos(angle) * dist, plant.y + Math.sin(angle) * dist);
+                    }
+                },
+                behavior: function(plant) {
+                    // Contribute to ambient light
+                    const contribution = plant.lightProduction * plant.brightness;
+                    game.garden.ambientLight = Math.min(1, game.garden.ambientLight + contribution * 0.001);
+                }
+            },
+            muffle: {
+                name: 'Muffle-Bulb',
+                baseColor: '#00f',
+                radius: 18,
+                dampeningRadius: 60,
+                dampeningFactor: 0.7,
+                growth: function(plant, dt) {
+                    plant.age += dt;
+                    plant.bulbSize = Math.min(1, plant.age / 10);
+                    if (plant.mutations.void) {
+                        plant.dampeningFactor *= 0.99;
+                    }
+                },
+                behavior: function(plant) {
+                    // Dampen nearby sounds
+                    game.soundWaves.forEach(wave => {
+                        const dist = Math.hypot(wave.x - plant.x, wave.y - plant.y);
+                        if (dist < plant.dampeningRadius) {
+                            wave.intensity *= plant.dampeningFactor;
+                            wave.radius *= 0.95;
+                        }
+                    });
+                    
+                    // Create quiet zone
+                    game.enemies.forEach(e => {
+                        if (e.type === 'shrieker') {
+                            const dist = Math.hypot(e.x - plant.x, e.y - plant.y);
+                            if (dist < plant.dampeningRadius) {
+                                e.soundPower *= 0.9;
+                            }
+                        }
+                    });
+                }
+            }
+        };
+        
+        // Enemy types
+        const enemyTypes = {
+            creeper: {
+                name: 'Creeper',
+                color: '#800',
+                speed: 20,
+                health: 30,
+                drainRate: 5,
+                behavior: function(enemy, dt) {
+                    // Find nearest plant
+                    let nearestPlant = null;
+                    let nearestDist = Infinity;
+                    
+                    game.garden.plants.forEach(plant => {
+                        const dist = Math.hypot(plant.x - enemy.x, plant.y - enemy.y);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestPlant = plant;
+                        }
+                    });
+                    
+                    if (nearestPlant) {
+                        // Move towards plant
+                        const angle = Math.atan2(nearestPlant.y - enemy.y, nearestPlant.x - enemy.x);
+                        enemy.vx = Math.cos(angle) * enemy.speed;
+                        enemy.vy = Math.sin(angle) * enemy.speed;
+                        
+                        // Drain plant if close
+                        if (nearestDist < 30) {
+                            nearestPlant.health -= enemy.drainRate * dt;
+                            game.garden.dissonance += dt * 2;
+                        }
+                    }
+                }
+            },
+            husher: {
+                name: 'Husher',
+                color: '#408',
+                speed: 15,
+                health: 40,
+                silenceRadius: 80,
+                behavior: function(enemy, dt) {
+                    // Wander with purpose
+                    enemy.wanderAngle = (enemy.wanderAngle || 0) + (Math.random() - 0.5) * 0.2;
+                    enemy.vx = Math.cos(enemy.wanderAngle) * enemy.speed;
+                    enemy.vy = Math.sin(enemy.wanderAngle) * enemy.speed;
+                    
+                    // Create silence aura
+                    game.soundWaves.forEach(wave => {
+                        const dist = Math.hypot(wave.x - enemy.x, wave.y - enemy.y);
+                        if (dist < enemy.silenceRadius) {
+                            wave.intensity *= 0.9;
+                        }
+                    });
+                    
+                    // Affect nearby plants
+                    game.garden.plants.forEach(plant => {
+                        const dist = Math.hypot(plant.x - enemy.x, plant.y - enemy.y);
+                        if (dist < enemy.silenceRadius) {
+                            plant.silenced = true;
+                        }
+                    });
+                }
+            },
+            shrieker: {
+                name: 'Shrieker',
+                color: '#804',
+                speed: 25,
+                health: 25,
+                soundPower: 1,
+                attackCooldown: 0,
+                behavior: function(enemy, dt) {
+                    // Move erratically
+                    enemy.vx += (Math.random() - 0.5) * 100 * dt;
+                    enemy.vy += (Math.random() - 0.5) * 100 * dt;
+                    enemy.vx *= 0.95;
+                    enemy.vy *= 0.95;
+                    
+                    enemy.attackCooldown -= dt;
+                    
+                    // Counter garden sounds
+                    if (enemy.attackCooldown <= 0 && game.soundWaves.length > 0) {
+                        // Emit dissonant counter-sound
+                        createSoundWave(enemy.x, enemy.y, 220, '#f00', 60, false, true);
+                        enemy.attackCooldown = 1.5;
+                        game.garden.dissonance += 5;
+                    }
+                }
+            }
+        };
+        
+        // Create plant with mutations
+        function createPlant(type, x, y, song = null) {
+            const plantDef = plantTypes[type];
+            if (!plantDef) return;
+            
+            const plant = {
+                type: type,
+                x: x,
+                y: y,
+                health: 100,
+                age: 0,
+                radius: plantDef.radius,
+                height: plantDef.radius,
+                cooldown: 0,
+                alerted: false,
+                silenced: false,
+                mutations: {},
+                ...plantDef
+            };
+            
+            // Apply mutations based on song and randomness
+            if (Math.random() < 0.3) {
+                const mutationTypes = ['enhanced', 'aggressive', 'prismatic', 'void', 'resonant'];
+                plant.mutations[mutationTypes[Math.floor(Math.random() * mutationTypes.length)]] = true;
+            }
+            
+            // Song influence
+            if (song) {
+                plant.soundFrequency = (plant.soundFrequency || 440) * (0.8 + song.intensity * 0.4);
+                plant.radius *= (0.9 + song.harmony * 0.2);
+            }
+            
+            game.garden.plants.push(plant);
+            return plant;
+        }
+        
+        // Create sound wave
+        function createSoundWave(x, y, frequency, color, radius, damaging = false, dissonant = false) {
+            const wave = {
+                x: x,
+                y: y,
+                vx: 0,
+                vy: 0,
+                radius: 10,
+                maxRadius: radius,
+                frequency: frequency,
+                color: color,
+                intensity: 1,
+                damaging: damaging,
+                dissonant: dissonant,
+                age: 0
+            };
+            game.soundWaves.push(wave);
+        }
+        
+        // Create enemy
+        function createEnemy(type, x, y) {
+            const enemyDef = enemyTypes[type];
+            if (!enemyDef) return;
+            
+            const enemy = {
+                type: type,
+                x: x,
+                y: y,
+                vx: 0,
+                vy: 0,
+                health: enemyDef.health,
+                stunned: 0,
+                ...enemyDef
+            };
+            
+            game.enemies.push(enemy);
+        }
+        
+        // Particle system
+        function createParticle(x, y, vx, vy, color, lifetime) {
+            game.particles.push({
+                x: x,
+                y: y,
+                vx: vx,
+                vy: vy,
+                color: color,
+                lifetime: lifetime,
+                maxLifetime: lifetime
+            });
+        }
+        
+        // Update UI
+        function updateUI() {
+            document.getElementById('health').textContent = Math.round(game.player.health);
+            document.getElementById('harmony').textContent = Math.round(game.garden.harmony);
+            document.getElementById('harmony-fill').style.width = game.garden.harmony + '%';
+            document.getElementById('dissonance').textContent = Math.round(game.garden.dissonance);
+            document.getElementById('dissonance-fill').style.width = game.garden.dissonance + '%';
+            document.getElementById('tempo').textContent = Math.round(game.garden.tempo);
+            
+            // Update seed inventory
+            const seedList = document.getElementById('seedList');
+            seedList.innerHTML = '';
+            game.seeds.forEach((seed, index) => {
+                const div = document.createElement('div');
+                div.className = 'seed-slot' + (index === game.player.selectedSeed ? ' selected' : '');
+                div.innerHTML = `<span style="color: ${seed.color}">●</span> ${seed.name} (${seed.count})`;
+                div.onclick = () => game.player.selectedSeed = index;
+                seedList.appendChild(div);
+            });
+        }
+        
+        // Input handling
+        window.addEventListener('keydown', e => game.keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', e => game.keys[e.key.toLowerCase()] = false);
+        
+        canvas.addEventListener('mousemove', e => {
+            const rect = canvas.getBoundingClientRect();
+            game.mouse.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            game.mouse.y = (e.clientY - rect.top) * (canvas.height / rect.height);
+        });
+        
+        // Touch controls
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            game.touch.active = true;
+            game.touch.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            game.touch.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        });
+        
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = canvas.getBoundingClientRect();
+            game.touch.x = (touch.clientX - rect.left) * (canvas.width / rect.width);
+            game.touch.y = (touch.clientY - rect.top) * (canvas.height / rect.height);
+        });
+        
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            game.touch.active = false;
+        });
+        
+        // Touch button handlers
+        document.getElementById('plantBtn').addEventListener('click', () => {
+            const seed = game.seeds[game.player.selectedSeed];
+            if (seed.count > 0) {
+                createPlant(seed.type, game.player.x, game.player.y, {
+                    intensity: game.player.resonanceIntensity,
+                    harmony: game.garden.harmony / 100
+                });
+                seed.count--;
+            }
+        });
+        
+        document.getElementById('weaveBtn').addEventListener('click', () => {
+            // Harmonic weave logic
+            const nearbyPlants = game.garden.plants.filter(p => {
+                return Math.hypot(p.x - game.player.x, p.y - game.player.y) < 100;
+            });
+            
+            if (nearbyPlants.length >= 2) {
+                game.garden.resonanceChains.push({
+                    plants: nearbyPlants.slice(0, 2),
+                    strength: 1,
+                    age: 0
+                });
+            }
+        });
+        
+        document.getElementById('lightBtn').addEventListener('click', () => {
+            // Focused light
+            createParticle(game.player.x, game.player.y, 0, -50, '#ff0', 2);
+            game.garden.ambientLight = Math.min(1, game.garden.ambientLight + 0.1);
+        });
+        
+        document.getElementById('screamBtn').addEventListener('click', () => {
+            // Shatter scream
+            if (game.player.energy >= 50) {
+                createSoundWave(game.player.x, game.player.y, 110, '#f00', 150, true);
+                game.player.energy -= 50;
+                game.garden.dissonance += 10;
+                game.garden.plants.forEach(p => {
+                    const dist = Math.hypot(p.x - game.player.x, p.y - game.player.y);
+                    if (dist < 150) p.health -= 10;
+                });
+            }
+        });
+        
+        // Game update
+        function update(dt) {
+            // Player movement
+            let dx = 0, dy = 0;
+            
+            if (game.keys['w'] || game.keys['arrowup']) dy -= 1;
+            if (game.keys['s'] || game.keys['arrowdown']) dy += 1;
+            if (game.keys['a'] || game.keys['arrowleft']) dx -= 1;
+            if (game.keys['d'] || game.keys['arrowright']) dx += 1;
+            
+            // Touch movement
+            if (game.touch.active) {
+                dx = game.touch.x - game.player.x;
+                dy = game.touch.y - game.player.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist > 5) {
+                    dx /= dist;
+                    dy /= dist;
+                }
+            }
+            
+            // Apply movement with resonance
+            const speed = 100 * game.player.resonanceIntensity;
+            game.player.vx = dx * speed;
+            game.player.vy = dy * speed;
+            
+            game.player.x += game.player.vx * dt;
+            game.player.y += game.player.vy * dt;
+            
+            // Keep player in bounds
+            game.player.x = Math.max(20, Math.min(canvas.width - 20, game.player.x));
+            game.player.y = Math.max(20, Math.min(canvas.height - 20, game.player.y));
+            
+            // Abilities
+            if (game.keys[' ']) {
+                const seed = game.seeds[game.player.selectedSeed];
+                if (seed.count > 0) {
+                    createPlant(seed.type, game.player.x, game.player.y, {
+                        intensity: game.player.resonanceIntensity,
+                        harmony: game.garden.harmony / 100
+                    });
+                    seed.count--;
+                    game.keys[' '] = false;
+                }
+            }
+            
+            // Number keys for seed selection
+            for (let i = 1; i <= 5; i++) {
+                if (game.keys[i.toString()]) {
+                    game.player.selectedSeed = i - 1;
+                }
+            }
+            
+            // Update plants
+            game.garden.plants = game.garden.plants.filter(plant => {
+                plant.cooldown -= dt;
+                plant.silenced = false;
+                
+                if (plant.growth) plant.growth(plant, dt);
+                if (plant.behavior) plant.behavior(plant);
+                
+                // Check plant health
+                if (plant.health <= 0) {
+                    game.garden.harmony -= 5;
+                    game.garden.dissonance += 3;
+                    for (let i = 0; i < 10; i++) {
+                        createParticle(plant.x, plant.y, 
+                            (Math.random() - 0.5) * 100,
+                            (Math.random() - 0.5) * 100,
+                            plant.baseColor, 1);
+                    }
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Update enemies
+            game.enemies = game.enemies.filter(enemy => {
+                enemy.stunned -= dt;
+                
+                if (enemy.stunned <= 0 && enemy.behavior) {
+                    enemy.behavior(enemy, dt);
+                }
+                
+                // Move enemy
+                enemy.x += enemy.vx * dt;
+                enemy.y += enemy.vy * dt;
+                
+                // Keep in bounds
+                if (enemy.x < 0 || enemy.x > canvas.width) enemy.vx *= -1;
+                if (enemy.y < 0 || enemy.y > canvas.height) enemy.vy *= -1;
+                
+                // Check enemy health
+                if (enemy.health <= 0) {
+                    game.garden.harmony += 3;
+                    game.garden.dissonance -= 2;
+                    for (let i = 0; i < 15; i++) {
+                        createParticle(enemy.x, enemy.y,
+                            (Math.random() - 0.5) * 150,
+                            (Math.random() - 0.5) * 150,
+                            enemy.color, 1.5);
+                    }
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            // Update sound waves
+            game.soundWaves = game.soundWaves.filter(wave => {
+                wave.age += dt;
+                wave.radius += 100 * dt;
+                
+                if (wave.dissonant) {
+                    // Dissonant waves affect harmony
+                    game.garden.harmony -= dt * 2;
+                } else {
+                    // Harmonic waves improve garden
+                    game.garden.harmony += dt * 0.5;
+                }
+                
+                return wave.radius < wave.maxRadius;
+            });
+            
+            // Update particles
+            game.particles = game.particles.filter(particle => {
+                particle.x += particle.vx * dt;
+                particle.y += particle.vy * dt;
+                particle.lifetime -= dt;
+                return particle.lifetime > 0;
+            });
+            
+            // Update resonance chains
+            game.garden.resonanceChains = game.garden.resonanceChains.filter(chain => {
+                chain.age += dt;
+                
+                // Check if plants still exist
+                chain.plants = chain.plants.filter(p => game.garden.plants.includes(p));
+                
+                if (chain.plants.length >= 2) {
+                    // Create energy flow between plants
+                    const p1 = chain.plants[0];
+                    const p2 = chain.plants[1];
+                    
+                    if (Math.sin(game.time * 3) > 0.9) {
+                        createParticle(
+                            p1.x + (p2.x - p1.x) * 0.5,
+                            p1.y + (p2.y - p1.y) * 0.5,
+                            0, 0, '#0ff', 0.5
+                        );
+                    }
+                    
+                    // Boost connected plants
+                    p1.resonanceBoost = 1.5;
+                    p2.resonanceBoost = 1.5;
+                    
+                    return true;
+                }
+                
+                return false;
+            });
+            
+            // Update garden metrics
+            game.garden.harmony = Math.max(0, Math.min(100, game.garden.harmony));
+            game.garden.dissonance = Math.max(0, Math.min(100, game.garden.dissonance));
+            game.garden.tempo = 60 + (game.garden.harmony - game.garden.dissonance) * 0.5;
+            game.garden.ambientLight *= 0.999; // Slowly decrease light
+            
+            // Player health tied to harmony
+            game.player.health = game.garden.harmony;
+            
+            // Spawn enemies based on dissonance
+            if (Math.random() < game.garden.dissonance * 0.0001) {
+                const enemyType = ['creeper', 'husher', 'shrieker'][Math.floor(Math.random() * 3)];
+                const side = Math.floor(Math.random() * 4);
+                let x, y;
+                
+                switch(side) {
+                    case 0: x = 0; y = Math.random() * canvas.height; break;
+                    case 1: x = canvas.width; y = Math.random() * canvas.height; break;
+                    case 2: x = Math.random() * canvas.width; y = 0; break;
+                    case 3: x = Math.random() * canvas.width; y = canvas.height; break;
+                }
+                
+                createEnemy(enemyType, x, y);
+            }
+            
+            // Regenerate energy
+            game.player.energy = Math.min(100, game.player.energy + dt * 10);
+            
+            updateUI();
+        }
+        
+        // Render function
+        function render() {
+            // Clear and set background based on ambient light
+            const bgBrightness = Math.floor(20 * game.garden.ambientLight);
+            ctx.fillStyle = `rgb(${bgBrightness}, ${bgBrightness}, ${bgBrightness + 10})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw resonance chains
+            ctx.strokeStyle = '#0ff';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.5;
+            game.garden.resonanceChains.forEach(chain => {
+                if (chain.plants.length >= 2) {
+                    ctx.beginPath();
+                    ctx.moveTo(chain.plants[0].x, chain.plants[0].y);
+                    ctx.lineTo(chain.plants[1].x, chain.plants[1].y);
+                    ctx.stroke();
+                }
+            });
+            ctx.globalAlpha = 1;
+            
+            // Draw plants
+            game.garden.plants.forEach(plant => {
+                ctx.save();
+                ctx.translate(plant.x, plant.y);
+                
+                // Draw plant based on type
+                ctx.fillStyle = plant.baseColor;
+                ctx.globalAlpha = plant.health / 100;
+                
+                if (plant.type === 'detector') {
+                    // Detector bud - pulsing circle
+                    const pulse = 1 + Math.sin(game.time * 3) * 0.1;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, plant.radius * pulse, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    if (plant.mutations.enhanced) {
+                        ctx.strokeStyle = '#fff';
+                        ctx.stroke();
+                    }
+                } else if (plant.type === 'siren') {
+                    // Siren stalk - tall stem with speaker-like top
+                    ctx.fillRect(-3, 0, 6, plant.height);
+                    ctx.beginPath();
+                    ctx.arc(0, -plant.height, plant.radius * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (plant.type === 'refractor') {
+                    // Refractor bloom - geometric petals
+                    for (let i = 0; i < plant.petalCount; i++) {
+                        ctx.save();
+                        ctx.rotate((Math.PI * 2 / plant.petalCount) * i);
+                        ctx.fillStyle = plant.mutations.prismatic ? 
+                            `hsl(${(game.time * 100 + i * 45) % 360}, 70%, 50%)` : 
+                            plant.baseColor;
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(plant.radius, -5);
+                        ctx.lineTo(plant.radius, 5);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                } else if (plant.type === 'glow') {
+                    // Glow moss - soft circle with glow effect
+                    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, plant.radius * 2);
+                    gradient.addColorStop(0, plant.baseColor);
+                    gradient.addColorStop(1, 'transparent');
+                    ctx.fillStyle = gradient;
+                    ctx.globalAlpha = plant.brightness;
+                    ctx.fillRect(-plant.radius * 2, -plant.radius * 2, plant.radius * 4, plant.radius * 4);
+                } else if (plant.type === 'muffle') {
+                    // Muffle bulb - puffy sphere
+                    ctx.beginPath();
+                    ctx.arc(0, 0, plant.radius * plant.bulbSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    if (plant.mutations.void) {
+                        ctx.strokeStyle = '#000';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                }
+                
+                ctx.restore();
+            });
+            
+            // Draw enemies
+            game.enemies.forEach(enemy => {
+                ctx.save();
+                ctx.translate(enemy.x, enemy.y);
+                ctx.fillStyle = enemy.color;
+                ctx.globalAlpha = enemy.stunned > 0 ? 0.5 : 0.8;
+                
+                if (enemy.type === 'creeper') {
+                    // Creeper - shifting blob
+                    ctx.beginPath();
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI * 2 / 6) * i + game.time;
+                        const radius = 15 + Math.sin(game.time * 3 + i) * 5;
+                        if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                        else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                } else if (enemy.type === 'husher') {
+                    // Husher - void circle
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    
+                    // Silence aura
+                    ctx.strokeStyle = enemy.color;
+                    ctx.globalAlpha = 0.2;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, enemy.silenceRadius, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (enemy.type === 'shrieker') {
+                    // Shrieker - jagged shape
+                    ctx.beginPath();
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (Math.PI * 2 / 8) * i;
+                        const radius = i % 2 === 0 ? 20 : 10;
+                        if (i === 0) ctx.moveTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                        else ctx.lineTo(Math.cos(angle) * radius, Math.sin(angle) * radius);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                
+                ctx.restore();
+            });
+            
+            // Draw sound waves
+            game.soundWaves.forEach(wave => {
+                ctx.strokeStyle = wave.color;
+                ctx.lineWidth = 2;
+                ctx.globalAlpha = wave.intensity * (1 - wave.radius / wave.maxRadius);
+                ctx.beginPath();
+                ctx.arc(wave.x, wave.y, wave.radius, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+            
+            // Draw particles
+            game.particles.forEach(particle => {
+                ctx.fillStyle = particle.color;
+                ctx.globalAlpha = particle.lifetime / particle.maxLifetime;
+                ctx.fillRect(particle.x - 2, particle.y - 2, 4, 4);
+            });
+            
+            // Draw player (Shard)
+            ctx.save();
+            ctx.translate(game.player.x, game.player.y);
+            ctx.rotate(game.time * 2);
+            
+            // Crystal shape
+            ctx.fillStyle = `hsl(${180 + game.garden.harmony}, 70%, 50%)`;
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(0, -15);
+            ctx.lineTo(10, -5);
+            ctx.lineTo(10, 10);
+            ctx.lineTo(0, 15);
+            ctx.lineTo(-10, 10);
+            ctx.lineTo(-10, -5);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Inner glow
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.5 + Math.sin(game.time * 3) * 0.2;
+            ctx.beginPath();
+            ctx.moveTo(0, -8);
+            ctx.lineTo(5, -3);
+            ctx.lineTo(5, 5);
+            ctx.lineTo(0, 8);
+            ctx.lineTo(-5, 5);
+            ctx.lineTo(-5, -3);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+            
+            ctx.globalAlpha = 1;
+        }
+        
+        // Game loop
+        let lastTime = 0;
+        function gameLoop(currentTime) {
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1); // Cap dt to prevent large jumps
+            lastTime = currentTime;
+            
+            game.time += dt;
+            
+            update(dt);
+            render();
+            
+            requestAnimationFrame(gameLoop);
+        }
+        
+        // Initialize game
+        function init() {
+            // Create initial plants
+            createPlant('glow', canvas.width * 0.3, canvas.height * 0.5);
+            createPlant('detector', canvas.width * 0.7, canvas.height * 0.3);
+            createPlant('siren', canvas.width * 0.5, canvas.height * 0.7);
+            
+            // Start with a few enemies
+            createEnemy('creeper', 50, 50);
+            createEnemy('husher', canvas.width - 50, canvas.height - 50);
+            
+            updateUI();
+            requestAnimationFrame(gameLoop);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
