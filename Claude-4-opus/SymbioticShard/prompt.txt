@@ -1,0 +1,42 @@
+Hello Claude,
+I'd like you to help me design a 2D game called Symbiotic Shard: The Last Echo Garden.
+Core Concept: The player is a sentient crystal fragment ("Shard") that must cultivate and defend a fragile, procedurally generated ecosystem of sound-manipulating plants ("Echo Flora") against dissonant "Null-Forms." The game revolves around a complex "Symphony System" where sound, light, growth, player abilities, and enemy behaviors are all deeply interconnected. The goal is to achieve harmony in the garden.
+Key Features & Mechanics to Detail:
+ * The Player - The Shard:
+   * Form & Movement: A small, crystalline entity. Moves by "resonating" or "singing" (directional input + intensity), allowing varied speeds, phasing through some flora, and small sonic pushes.
+   * Symbiotic Link: Health is tied to the garden's overall "Harmony."
+   * Abilities:
+     * Resonant Seeding: Plant Echo Seeds. The "song" used during planting influences initial plant characteristics.
+     * Harmonic Weaving: Interact with mature Echo Flora to link them, creating chains of sonic/light effects (core strategy).
+     * Focused Light: Channel ambient light to "tune" plants (accelerate growth, change properties, purify).
+     * Shatter Scream: Rare, costly AoE attack that damages enemies but also disrupts the garden.
+ * The Environment - The Echo Garden:
+   * Procedural Generation: Each garden/level is unique (ambient light, nutrients, seed types).
+   * Echo Flora (Plants): Dozens of bizarre, sound-manipulating plant types. Please brainstorm and describe at least 5-7 distinct types with unique properties (e.g., Detector Buds that chime near enemies, Siren Stalks that emit defensive shrieks, Refractor Blooms that manipulate light/sound, Glow-Moss for ambient light, Muffle-Bulbs to dampen sound, Tempo-Vines that pulse with the garden's tempo, Conductor-Trees as powerful central nodes).
+   * Plant Evolution & Mutation (Crucial Random Element): Echo Seeds should have a significant random mutation factor. The same seed planted with the same "song" might not always produce the exact same plant or might develop unexpected secondary properties. This forces player adaptation.
+ * The Enemies - Null-Forms:
+   * Nature: Abstract, shifting 2D shapes representing silence/dissonance. They aim to silence the garden (drain light, corrupt plants, attack Shard).
+   * Types: Design at least 3-4 distinct types with different behaviors (e.g., Creepers that drain plants, Hushers that create silence auras, Shriekers that counter garden sounds, Absorbers that attack the Shard).
+   * Emergence: Spawn from areas of low light, silence, or high dissonance.
+ * The Core System - The Symphony System (Highly Interconnected):
+   * Ambient Light: Varies per biome; crucial for growth and Shard abilities. Plants can produce/consume it.
+   * Sound Propagation: Sounds (Shard, plants, enemies) travel, reflect, or are absorbed. Intensity and frequency matter.
+   * Harmony & Dissonance Meter:
+     * Harmony: Increased by diverse, healthy, synergistic flora. Buffs plants, unlocks Shard abilities, positive environmental effects.
+     * Dissonance: Increased by Null-Forms, dying plants, clashing frequencies. Buffs enemies, negative environmental effects, drains Shard.
+   * Tempo: The garden's underlying "pulse." Influenced by dominant flora frequencies. Affects growth rates, enemy speed, Shard energy regen.
+   * Resonance Chains: Player-created links between plants to create complex, cascading effects (e.g., detector signals attacker, which triggers a specific defensive sound from another plant). Null-Forms might try to disrupt these.
+ * Gameplay Loop:
+   * Explore & Seed (find seeds, good spots).
+   * Cultivate & Design (plant strategically, influence growth with "song").
+   * Harmonize & Weave (manage flora, establish Resonance Chains, tune with light).
+   * Defend & Adapt (garden and Shard respond to Null-Forms; adapt to mutations and enemy tactics).
+   * Evolve & Expand (successful defense might unlock new seeds, areas, or lead to "winning" by awakening a Conductor-Tree or reaching a Harmony threshold).
+Desired Qualities:
+ * Complexity: Deeply interconnected systems are key.
+ * Randomness: Meaningful procedural generation and, especially, unpredictable plant mutations are vital for replayability and forcing adaptation.
+ * Uniqueness: The blend of sound-based gardening, ecosystem management, and active defense should feel novel.
+ * 2D Visuals: The game is 2D. Consider an art style that could be atmospheric and clearly convey the sonic/light interactions (e.g., abstract, bioluminescent).
+ * Fun & Engaging: The strategic depth, creative garden design, and emergent gameplay should be enjoyable.
+Request:
+Please generate a detailed game design document (GDD) for "Symbiotic Shard: The Last Echo Garden." Focus on elaborating the mechanics described above, particularly the interactions within the Symphony System, diverse plant and enemy types with specific examples of their abilities and interactions, and how the randomness elements would manifest. I'm looking for a design that is truly complicated and offers rich, emergent gameplay possibilities. Put your final work in an artifact. Have it be a full web app with the entire game in whatever coding language you think fits best. Ensure it is mobile and desktop friendly with a cool UI.
